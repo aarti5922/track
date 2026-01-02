@@ -1,25 +1,26 @@
-import sqlite3
+import psycopg2
+import os
 
-con = sqlite3.connect("sales.db")
+con = psycopg2.connect(os.environ["DATABASE_URL"])
 cur = con.cursor()
 
 cur.execute("DROP TABLE IF EXISTS sales")
 
 cur.execute("""
 CREATE TABLE sales(
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   name TEXT,
-  desc TEXT,
+  "desc" TEXT,
   date TEXT,
   time TEXT,
-  price REAL,
-  trip INTEGER,
-  diesel INTEGER,
-  total REAL
+  price FLOAT,
+  trip INT,
+  diesel INT,
+  total FLOAT
 )
 """)
 
 con.commit()
 con.close()
 
-print("Database initialized successfully!")
+print("PostgreSQL Database initialized successfully!")
