@@ -1,14 +1,14 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import sqlite3
+import psycopg2
 import os
 
 app = Flask(__name__)
-CORS(app)  # Allow requests from any origin (needed for frontend on Netlify)
+CORS(app)
 
-# Helper function to connect to DB
+# PostgreSQL connection
 def db():
-    return sqlite3.connect("sales.db", check_same_thread=False)
+    return psycopg2.connect(os.environ["DATABASE_URL"])
 
 # ADD NEW ENTRY
 @app.route("/add", methods=["POST"])
@@ -18,8 +18,8 @@ def add():
     cur = con.cursor()
 
     cur.execute("""
-    INSERT INTO sales(name, desc, date, time, price, trip, diesel, total)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO sales(name, "desc", date, time, price, trip, diesel, total)
+    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
     """, (
         d.get("name", ""),
         d.get("desc", ""),
@@ -56,8 +56,8 @@ def update(item_id):
 
     cur.execute("""
     UPDATE sales
-    SET name = ?, desc = ?, date = ?, price = ?, trip = ?, diesel = ?, total = ?
-    WHERE id = ?
+    SET name=%s, "desc"=%s, date=%s, price=%s, trip=%s, diesel=%s, total=%s
+    WHERE id=%s
     """, (
         d.get("name", ""),
         d.get("desc", ""),
@@ -73,33 +73,29 @@ def update(item_id):
     con.close()
     return jsonify({"status": "updated"})
 
-# DELETE AN ENTRY (optional but recommended)
+# DELETE
 @app.route("/delete/<int:item_id>", methods=["DELETE"])
 def delete(item_id):
     con = db()
     cur = con.cursor()
-    cur.execute("DELETE FROM sales WHERE id = ?", (item_id,))
+    cur.execute("DELETE FROM sales WHERE id=%s", (item_id,))
     con.commit()
     con.close()
     return jsonify({"status": "deleted"})
 
 # SEARCH BY DATE
-@app.route("/search", methods=["GET"])
+@app.route("/search")
 def search():
-    query_date = request.args.get("date")
-    if not query_date:
-        return jsonify({"error": "date query parameter is required"}), 400
-
+    q = request.args.get("date")
     con = db()
     cur = con.cursor()
-    cur.execute("SELECT * FROM sales WHERE date = ? ORDER BY time DESC", (query_date,))
+    cur.execute("SELECT * FROM sales WHERE date=%s ORDER BY time DESC", (q,))
     cols = [d[0] for d in cur.description]
     result = [dict(zip(cols, r)) for r in cur.fetchall()]
     con.close()
     return jsonify(result)
 
-# RUN SERVER
+# RUN
 if __name__ == "__main__":
-    # For Render / production, use host 0.0.0.0 and port from env
     port = int(os.environ.get("PORT", 5000))
-    app.run(debug=True, host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port)
